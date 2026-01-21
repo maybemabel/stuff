@@ -1,0 +1,91 @@
+<html>
+    <head>
+        <style>
+            body, html, textarea, input, button, label, div {
+                background: #202028;
+                color: #d0d0e0;
+                font-family: monospace;
+            }
+
+            div, input, button {
+                border: 2px solid #30303b;
+                border-radius: 4px;
+                padding: 4px;
+                margin: 4px;
+            }
+
+            div:hover, input:hover, button:hover {
+                border: 2px solid #404050;
+                background: #30303b;
+            }
+
+            #api_key {
+                filter: none;
+            }
+        </style>
+    </head>
+
+    <body>
+
+    <input type="text" id="api_key" placeholder="api key"><button id="api_button">get boosts</button><button id="button">calculate chances</button><br>
+    <div id="results"></div>
+    
+    <script>
+
+function calculate_chances(boost) {
+
+    let shiny_base = 1/1000;
+    if(boost.boosts.hypermode == true)  { shiny_base *= 2   }
+    if(boost.boosts.goldAmulet == true) { shiny_base *= 1.5 }
+    if(boost.boosts.shinyCharm == true) { shiny_base *= 2.5 }
+    if(boost.boosts.potd == true)       { shiny_base *= 2 }
+    const at_current_chain = shiny_base * (1 / ((0.99 - (boost.boosts.seiPower / 2500)) ** boost.boosts.shinyChainSubchain));
+
+    let albino_base = [0, 1/6144, 1/3072, 1/1536, 1/768, 1/480, 1/270, 1/180][boost.boosts.albinoLevel];
+    if(boost.boosts.silverAmulet == true) { albino_base *= (4 / 3) };
+    if(boost.boosts.zCrystal == true) {     albino_base *= 1.5     };
+    if(boost.boosts.typeRace == true) {     albino_base *= 1.2     };
+
+    let melan_base = shiny_base * albino_base;
+    if(boost.boosts.uberCharm == true)    { melan_base *= 6 };
+    if(boost.boosts.cobaltAmulet == true) { melan_base *= (1 + 0.02 * Math.floor(boost.boosts.shinyChainCount / 100)) };
+    
+    const chances_result = [`1 / ${(1 / shiny_base).toFixed(2)}, 1 / ${(1 / at_current_chain).toFixed(2)} at ${boost.boosts.shinyChainSubchain} mini-chain`,
+                            `1 / ${(1 / albino_base).toFixed(2)} if not shiny, so 1 / ${(1 / ((1 - shiny_base) * (albino_base))).toFixed(2)}`,
+                            `1 / ${(1 / melan_base).toFixed(2)}, means 1 / ${(1 / (melan_base / shiny_base)).toFixed(2)} on any shiny`];
+
+    return chances_result
+}
+
+const results = document.getElementById("results");
+const button = document.getElementById("button");
+const api_button = document.getElementById("api_button");
+const api_input  = document.getElementById("api_key");
+
+let boost = null;
+
+button.addEventListener("click", function(event) {
+    if(boost === null) {
+        results.innerText = "error: get boosts";
+    }
+
+    const chances = calculate_chances(boost);
+    results.innerText = `shiny chances: ${chances[0]}\nalbino chances: ${chances[1]}\nmelan chances: ${chances[2]}`;
+});
+
+api_button.addEventListener("click", function(event) {
+    fetch('https://api.pokefarm.com/v1/user/boosts', {
+        headers: {
+            'x-api-key': api_input.value.trim()
+        }
+    })
+        .then(response => response.json())
+        .then(data => {
+            boost = data;
+            api_button.innerText = "got boosts"
+    });
+});
+
+    </script>
+    </body>
+</html>

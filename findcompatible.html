@@ -1,0 +1,139 @@
+<html>
+    <head>
+        <style>
+            body, html, textarea, input, button, label, div {
+                background: #202028;
+                color: #d0d0e0;
+                font-family: monospace;
+            }
+
+            div, input, button {
+                border: 2px solid #30303b;
+                border-radius: 4px;
+                padding: 4px;
+                margin: 4px;
+            }
+
+            div:hover, input:hover, button:hover {
+                border: 2px solid #404050;
+                background: #30303b;
+            }
+
+            #api_key {
+                filter: none;
+            }
+        </style>
+    </head>
+
+    <body>
+
+    <input type="text" id="api_key" placeholder="api key"><button id="api_button">get dex</button><br>
+    <input type="text" id="pkmn_name" placeholder="name"><input type="text" id="pkmn_forme_name" placeholder="forme name"><button id="find_pairs">find pairs</button><br>
+    <input type="checkbox" id="naturaltype" name="naturaltype" switch checked/><label for="naturaltype">natural type match</label><br>
+    <div id="results"></div>
+    
+    <script>
+
+function getpairs(pkmn_name, pkmn_forme_name) {
+
+    pkmn_name = pkmn_name.toLowerCase().trim();
+    pkmn_forme_name = pkmn_forme_name.toLowerCase().trim();
+    let attributes = [null];
+    let thispkmn = "";
+    
+    for(let i = 0; i < dex.length; ++i) {
+        for(let j = 0; j < dex[i].pokemon.length; ++j) {
+            const pkmn = dex[i].pokemon[j];
+            if(
+                pkmn.name.toLowerCase() == pkmn_name 
+                && pkmn.formename.toLowerCase() == pkmn_forme_name.toLowerCase()
+            ) {
+                attributes = [pkmn.egggroup.split("/"), pkmn.bodytype, pkmn.types[0], (pkmn.types[1] || pkmn.types[0]), pkmn.size.weight, pkmn.size.height, pkmn.genders];
+                thispkmn = `${pkmn.genders} - ${pkmn.name} / ${pkmn.formename}`;
+                i = Infinity; j = Infinity;
+                break;
+            }
+        }
+    }
+
+    if(attributes[0] === null) {
+        return -1;
+    }
+    
+    const gd = ['1 Male to 1 Female', '1 Male to 7 Female', '2 Male to 6 Female', '6 Male to 2 Female', '7 Male to 1 Female', 'All Female', 'All Male', 'Genderless'];
+    const gdnums = [ [4, 4], [1, 7], [2, 6], [6, 2], [7, 1], [0, 8], [8, 0], [-4, -4] ];
+
+    const compatible = [];
+    const targetegggroup = attributes[0];
+    const targetbodytype = attributes[1];
+    const targettype1 = attributes[2];
+    const targettype2 = attributes[3];
+    const targetweight = attributes[4];
+    const targetheight = attributes[5];
+    const targetgender = gdnums[gd.indexOf(attributes[6])];
+
+    for(let i = 0; i < dex.length; ++i) {
+        for(let j = 0; j < dex[i].pokemon.length; ++j) {
+            const pkmn = dex[i].pokemon[j];
+            if(pkmn_name == pkmn.name.toLowerCase() && pkmn_forme_name == pkmn.formename.toLowerCase()) {
+                continue;
+            }
+
+            if(   
+                (pkmn.egggroup.split("/").includes(targetegggroup[0]) 
+                || pkmn.egggroup.split("/").includes((targetegggroup[1] || targetegggroup[0])))
+                && pkmn.bodytype == targetbodytype
+                && (((pkmn.types.includes(targettype1) || pkmn.types.includes(targettype2)) && nattype.checked == true) || (nattype.checked == false))
+                && Math.abs(pkmn.size.weight - targetweight) <= 100 
+                && Math.abs(pkmn.size.height - targetheight) <= 0.8) {
+
+                    const totalgender = [targetgender[0] + gdnums[gd.indexOf(pkmn.genders)][0], targetgender[1] + gdnums[gd.indexOf(pkmn.genders)][1]];
+                    if(totalgender[0] + totalgender[1] == 16 && totalgender[0] != 0 && totalgender[1] != 0) {
+                        compatible.push(`${(100 * totalgender[0] / 16).toFixed(1)}% male / ${(100 * totalgender[1] / 16).toFixed(1)}% female - ${pkmn.name} / ${pkmn.formename}`);
+                    } else {
+                        compatible.push(`incompatible gender (${pkmn.genders}) - ${pkmn.name} / ${pkmn.formename}`);
+                    }
+
+            }
+        }
+    }
+
+    return [thispkmn, "", ...(compatible.sort())];
+    
+}
+
+let dex = [];
+
+const button = document.getElementById("find_pairs");
+const api_button = document.getElementById("api_button");
+const api_input  = document.getElementById("api_key");
+const name = document.getElementById("pkmn_name");
+const formename = document.getElementById("pkmn_forme_name");
+const results = document.getElementById("results");
+const nattype = document.getElementById("naturaltype");
+
+button.addEventListener("click", function(event) {
+    const pairs = getpairs(name.value, formename.value);
+    if(pairs == -1) {
+        results.innerText = `${name.value} / ${formename.value} does not exist`;
+    } else {
+        results.innerText = (pairs.join("\n"));
+    }
+});
+
+api_button.addEventListener("click", function(event) {
+    fetch('https://api.pokefarm.com/v1/pokemon/dex?components=102,104,106,107', {
+        headers: {
+            'x-api-key': api_input.value.trim()
+        }
+    })
+        .then(response => response.json())
+        .then(data => {
+            dex = data;
+            api_button.innerText = "got dex"
+    });
+});
+
+    </script>
+    </body>
+</html>

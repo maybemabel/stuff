@@ -1,0 +1,155 @@
+<html>
+    <head>
+        <style>
+            body, html {
+                background: #202020;
+            }
+
+            td, th {
+                color: #d0d0d0;
+                text-align: center;
+            }
+
+            table, th, td {
+                font-size: 1.5em;
+                background: #303030;
+                border: 1px solid #d0d0d0;
+                border-collapse: collapse;
+                padding: 2px;
+                margin: 2px;
+                font-family: monospace;
+            }
+        </style>
+    </head>
+
+    <body>
+
+        <table id="table">
+
+        </table>
+
+        <script>
+
+function readTextFile(file) {
+    var rawFile = new XMLHttpRequest();
+    rawFile.open("GET", file, false);
+    rawFile.onreadystatechange = function ()
+    {
+        if(rawFile.readyState === 4)
+        {
+            if(rawFile.status === 200 || rawFile.status == 0)
+            {
+                var allText = rawFile.responseText;
+            }
+        }
+    }
+    rawFile.send(null);
+    return rawFile.responseText;
+}
+
+let rawdata = readTextFile("https://raw.githubusercontent.com/maybemabel/stuff/refs/heads/main/rawdata.txt").split("\n").filter(x => x != "");
+rawdata = rawdata.slice(rawdata.length - (18 * 6));
+const month_count = rawdata.length / 18;
+const types = "normal fire water electric grass ice fighting poison ground flying psychic bug rock ghost dragon dark steel fairy".split(" ");
+const data = Array.from(rawdata).map(x => x.split("	").pop());;
+let dates = Array.from(rawdata).map((x,i) => i % 18 ? "#" : x.split("	").splice(0, 1)).filter(x => x != "#");
+const rankings = [];
+const num = "st nd rd th th th th th th th th th th th th th th th".split(" ");
+
+// const top10 = Array.from(data).sort((a,b) => b-a).slice(0, 10).map((x,i) => `#${String(i+1).padStart(4, " ")}: ${types[data.indexOf(x) % 18].padEnd(8, " ")} got ${x} points on ${String(dates[Math.floor(data.indexOf(x) / 18)]).slice(0, 7)}`);
+// top10.forEach(x => console.log(x));
+
+/*
+const month_averages = [];
+
+for(let month = 0; month < 18 * (data.length/18); month += 18) {
+    let average = 0;
+    for(let i = 0; i < 18; ++i) {
+        average += parseInt(data[month+i]);
+    }
+    month_averages.push([(average/18).toFixed(3), dates[month/18]]);
+}
+
+month_averages.sort((a, b) => b[0] - a[0]);
+month_averages.forEach(x => console.log(`the average score on ${x[1]} was ${x[0]}!`));
+*/
+
+/*
+let toptypes = Array.from(data).sort((a,b) => b-a).map((x,i) => [types[data.indexOf(x) % 18], x, String(dates[Math.floor(data.indexOf(x) / 18)]).slice(0, 7)]);
+let typelist = Array.from(types);
+
+while(typelist.length > 0) {
+    const type = toptypes[0][0];
+    console.log(`${toptypes[0][1]} on ${toptypes[0][2]} is the best score of ${type.toUpperCase()}`);
+    toptypes = toptypes.filter(x => x[0] != type);
+    typelist.splice(typelist.indexOf(type), 1);
+}
+*/
+
+for(let month = 0; month < 18 * (data.length/18); month += 18) {
+    const ranking = [];
+    for(let type = 0; type < 18; type += 1) {
+        ranking.push(data[month + type]);
+    }
+    rankings.push(ranking);
+}
+
+const placements = [];
+
+for(let type = 0; type < 18; ++type) {
+    const placement = [];
+    for(let month = 0; month < (data.length/18); ++month) {
+        const sorted = Array.from(rankings[month]).sort((a,b) => b - a);
+        placement.push(sorted.indexOf(rankings[month][type]) + 1);
+    }
+    placements.push(placement);
+}
+
+const table = document.getElementById("table");
+
+const averages = [];
+
+table.innerHTML += `\n<tr>\n<th>type</th>${dates.map(x => "\n<th>"+String(x).slice(2,4)+" "+String(x).slice(5,7)+"</th>\n").join("")}\n<th>average</th>\n<th>bonus</th>\n<th>type</th>\n</tr>`;
+for(let i = 0; i < placements.length; ++i) {
+    let text = `\n<tr><th>${types[i]}</th>`;
+    for(let p = 0; p < placements[i].length; ++p) {
+        text += `\n<td style='color: #d0d0d0; background: ${"rgb("+(placements[i][p] - 1) * (255 / 32)+ ", " + (18 - (placements[i][p] - 1)) * (255/32) + ", " + (placements[i][p] < 4 ? 248 - (placements[i][p] - 1) * 60 : 0) + ");"}'>${placements[i][p] + num[placements[i][p]-1]}</td>`;
+    }
+    const sum = (placements[i].reduce((p, a) => p+a, 0) / month_count).toFixed(3);
+    // const oldsum = (placements[i].slice(0, placements[i].length - 1).reduce((p, a) => p+a, 0) / (month_count - 1)).toFixed(3);
+    // console.log(`${types[i].padStart(8, " ")}   ${oldsum} -> ${sum} ${oldsum < sum ? "v" : oldsum > sum ? "^" : "="}`);
+    averages.push([sum, types[i]]);
+    text += `\n<td style='color: #d0d0d0; background: ${"rgb(" + (255 * (sum / 18)) + ", " + (255 - (255 * (sum / 18))) + ", " + (sum < 4 ? 248 - (sum - 1) * 60 : 0) + ");"}'>${sum}</td>`;
+    text += `\n<th>${Math.round(2 * (3 * sum - 3)) / 2}%</th>`
+    text += `\n<th>${types[i]}</th>`;
+    text += `\n</tr>`;
+
+    table.innerHTML += text;
+
+    const placementlist = [];
+    const neverlist = [];
+    let never = 0;
+    for(let p = 1; p < 19; ++p) {
+        if(placements[i].indexOf(p) == -1) {
+            neverlist.push("#"+p);
+            never = 1;
+        }
+
+        placementlist.push(String(dates[placements[i].indexOf(p)]).slice(2, 7));
+
+        /*if(p == 18) {
+            if(never == 1) {
+                console.log(`${types[i]} has never been: ${neverlist.join(", ")}`);
+            } else {
+                console.log(`${types[i]}: ${placementlist.join(", ")}`);
+            }
+        }*/
+    }
+}
+
+// averages.sort((a,b) => a[0] - b[0]);
+// averages.forEach((x, i) => console.log(`${String(i+1).padStart(2, " ")}${num[i]}: ${x[1].padStart(8, " ")} with an average of ${x[0]}`));
+
+        </script>
+    </body>
+</html>
